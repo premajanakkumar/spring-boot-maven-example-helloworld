@@ -32,13 +32,11 @@ jobs:
           chmod 600 key.pem
           ls -la target/
 
-          # Find the first WAR file in target directory
-          FILE=$(ls target/*.war | head -n 1)
+           # Upload WAR to user's home directory first
+           scp -i key.pem -o StrictHostKeyChecking=no "$FILE" $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.war
 
-          echo "Uploading WAR $FILE to Tomcat on EC2"
-          scp -i key.pem -o StrictHostKeyChecking=no "$FILE" $EC2_USER@$EC2_HOST:/opt/tomcat/webapps/app.war
-
-          echo "Restarting Tomcat server on EC2"
+          # SSH in and move the WAR to /opt/tomcat/webapps with sudo, then restart tomcat
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-            sudo systemctl restart tomcat
+          sudo mv /home/$EC2_USER/app.war /opt/tomcat/webapps/app.war
+          sudo systemctl restart tomcat
           EOF
