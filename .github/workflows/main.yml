@@ -28,21 +28,23 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-            echo "$SSH_KEY" > key.pem
-            chmod 600 key.pem
-  
-            FILE=github-action-maven-tutorial-1.0-SNAPSHOT-jar-with-dependencies.jar
+         echo "$SSH_KEY" > key.pem
+         chmod 600 key.pem
 
-            echo "Uploading $FILE to EC2"
-            scp -i key.pem -o StrictHostKeyChecking=no target/$FILE $EC2_USER@$EC2_HOST:~/app.jar
+         # Find the first jar file in target/ directory
+         FILE=$(ls target/*.jar | head -n 1)
 
-            echo "Restarting app on EC2"
-            ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-            echo "Killing old Java app (if any)..."
-            pkill -f 'java -jar app.jar' || true
+         echo "Uploading $FILE to EC2"
+         scp -i key.pem -o StrictHostKeyChecking=no "$FILE" $EC2_USER@$EC2_HOST:~/app.jar
 
-            echo "Starting new app..."
-            nohup java -jar app.jar > app.log 2>&1 &
+         echo "Restarting app on EC2"
+         ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
+         echo "Killing old Java app (if any)..."
+         pkill -f 'java -jar app.jar' || true
 
-            echo "App started. Check app.log for logs."
-            EOF
+         echo "Starting new app..."
+         nohup java -jar app.jar > app.log 2>&1 &
+
+         echo "App started. Check app.log for logs."
+         EOF
+
