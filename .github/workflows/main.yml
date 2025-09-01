@@ -30,13 +30,28 @@ jobs:
         run: |
           echo "$SSH_KEY" > key.pem
           chmod 600 key.pem
+
+          echo "Listing current and target directories:"
+          ls -la ./
           ls -la target/
 
-           # Upload WAR to user's home directory first
-           scp -i key.pem -o StrictHostKeyChecking=no "$FILE" $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.war
+          # Try to find WAR in current directory first, then in target/
+          FILE=$(ls *.war 2>/dev/null | head -n 1 || true)
 
-          # SSH in and move the WAR to /opt/tomcat/webapps with sudo, then restart tomcat
-          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-          sudo mv /home/$EC2_USER/app.war /opt/tomcat/webapps/app.war
-          sudo systemctl restart tomcat
+          if [ -z "$FILE" ]; then
+            FILE=$(ls target/*.war 2>/dev/null | head -n 1 || true)
+          fi
+
+          if [ -z "$FILE" ]; then
+            echo "ERROR: No WAR file found!"
+            exit 1
+          fi
+
+          echo "Uploading WAR file: $FILE"
+          scp -i key.pem -o StrictHostKeyChecking=no "$FILE" $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.war
+
+          echo "Moving WAR file and restarting Tomcat on EC2"
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
+            sudo mv /home/$EC2_USER/app.war /opt/tomcat/webapps/app.war
+            sudo systemctl restart tomcat
           EOF
